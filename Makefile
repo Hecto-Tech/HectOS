@@ -8,4 +8,4 @@ $(BUILD_DIR)/main_floppy.img: $(BUILD_DIR)/main.bin
 	truncate -s 1440k $(BUILD_DIR)/main_floppy.img
 
 $(BUILD_DIR)/main.bin: $(SRC_DIR)/boot.asm
-	$(ASM) $(SRC__DIR)/boot.asm -f bin -o $(BUILD_DIR)/main.bin
+	$(ASM) $(SRC_DIR)/boot.asm -f bin -o $(BUILD_DIR)/main.bin
