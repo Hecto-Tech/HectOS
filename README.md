@@ -1,3 +1,3 @@
 # HectOS
 
-The OS from hecto
+The OS from Hecto
