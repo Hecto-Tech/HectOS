@@ -89,10 +89,11 @@ main:
 	mov bx, 0x7E00		; data should be after the bootloader
 	call read_disk
 	
-	; print Hello World
+	; print HectOS message
 	mov si, msg_hello
 	call puts
 
+	cli 				; disbale interrupts
 	hlt
 
 ;
@@ -194,11 +195,11 @@ read_disk:
 .done:
 	popa
 	
-	push di
-	push dx
-	push cx
-	push bx
-	push ax								; restore registers we modified
+	pop di
+	pop dx
+	pop cx
+	pop bx
+	pop ax								; restore registers we modified
 	ret
 
 ;
@@ -214,8 +215,8 @@ disk_reset:
 	popa
 	ret
 		
-msg_hello: 			db 'Hello, World!', ENDL, 0
-msg_read_failed: 	db 'Read for disk failed!', ENDL, 0
+msg_hello: 			db 'HectOS', ENDL, 0
+msg_read_failed: 	db 'Read from disk failed!', ENDL, 0
 
 
 times 510-($-$$) db 0
