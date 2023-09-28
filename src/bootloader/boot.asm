@@ -81,7 +81,7 @@ main:
 	mov sp, 0x7C00 	    ; stack grows downwards from where we are loaded in memory
 
 	; read something from floppy disk
-	; BIOS shold set DL to drive
+	; BIOS should set DL to drive
 	mov [ebr_drive_number], dl
 
 	mov ax, 1 			; LBA=1, second sector from disk 
@@ -93,7 +93,7 @@ main:
 	mov si, msg_hello
 	call puts
 
-	cli 				; disbale interrupts
+	cli 				; disable interrupts
 	hlt
 
 ;
