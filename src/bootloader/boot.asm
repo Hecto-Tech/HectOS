@@ -91,8 +91,9 @@ main:
 	
 	; print HectOS message
 	mov si, msg_hello
-	call puts
 
+	call puts
+	
 	cli 				; disable interrupts
 	hlt
 
@@ -215,7 +216,7 @@ disk_reset:
 	popa
 	ret
 		
-msg_hello: 			db 'HectOS', ENDL, 0
+msg_hello: 			db 'HectOS', ENDL, ENDL, 'The BEST OS out there!', 0
 msg_read_failed: 	db 'Read from disk failed!', ENDL, 0
 
 
