@@ -1,7 +1,13 @@
+// I don't know what this code does, but I know it's very important, so we gotta leave it there
+
 // Yes, this whole operating system is written in PascalCase and camelCase
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
+typedef uint8_t bool;
+#define true 1
+#define false 0
 
 typedef struct {
 	uint8_t BootJumpInstruction[3];
@@ -27,9 +33,60 @@ typedef struct {
     uint8_t VolumeLabel[11];    // 11 bytes, padded with spaces
     uint8_t SystemId[8];
     	
-} BootSector;
+} __attribute__((packed))  BootSector;
 
-//bool 
+typedef struct {
+	uint8_t Name[11];
+	uint8_t Attributes;
+	uint8_t _Reserved;
+	uint8_t CreatedTimeTenths;
+	uint16_t CreatedTime;
+	uint16_t CreatedDate;
+	uint16_t AccessedDate;
+	uint16_t FirstClusterHigh;
+	uint16_t ModifiedTime;
+	uint16_t ModifiedDate;
+	uint16_t FirstClusterLow;
+	uint32_t Size;
+	
+		
+} __attribute__((packed)) DirectoryEntry;
+
+
+BootSector g_BootSector;
+uint8_t* g_Fat = NULL;
+DirectoryEntry* g_RootDirectory = NULL;
+
+
+bool readBootSector(FILE* disk)  {
+	return fread(&g_BootSector, sizeof(g_BootSector), 1, disk) > 0;	
+}
+
+bool readSectors(FILE* disk, uint32_t lba, uint32_t count, void* bufferOut) {
+	bool ok = true;
+	ok = ok && (fseek(disk, lba * g_BootSector.BytesPerSector, SEEK_SET) == 0);
+	ok = ok && (fread(bufferOut, g_BootSector.BytesPerSector, count, disk) == count);
+	return ok;
+}
+
+bool readFat(FILE* disk) {
+	g_Fat = (uint8_t*) malloc(g_BootSector.SectorsPerFat * g_BootSector.BytesPerSector);
+	return readSectors(disk, g_BootSector.ReservedSectors, g_BootSector.SectorsPerFat, g_Fat);
+	
+}
+
+bool readRootDirectory(FILE* disk) {
+	uint32_t lba = g_BootSector.ReservedSectors + g_BootSector.SectorsPerFat * g_BootSector.FatCount;
+	uint32_t size = sizeof(DirectoryEntry) * g_BootSector.DirEntryCount;
+	uint32_t sectors = (size / g_BootSector.BytesPerSector);
+	if (size % g_BootSector.BytesPerSector > 0) {
+		sectors++;
+	}
+
+	g_RootDirectory = (DirectoryEntry*) malloc(sectors * g_BootSector.BytesPerSector);
+	return readSectors(disk, lba, sectors, g_RootDirectory);
+	
+}
 
 int main(int argc, char** argv) {
 
@@ -39,6 +96,30 @@ int main(int argc, char** argv) {
 	}
 
 	FILE* disk = fopen(argv[1], "rb");
-	
+	if (!disk) {
+		fprintf(stderr, "Cannot open disk image %s!\n", argv[1]);
+		return -1;
+	}
+
+	if (!readBootSector(disk)) {
+		fprintf(stderr, "Could not read boot sector!\n");
+		return -2;
+	}
+
+	if (!readFat(disk)) {
+		fprintf(stderr, "Could not read FAT!\n");
+		free(g_Fat);
+		return -3;
+	}
+
+	if (!readRootDirectory(disk)) {
+		fprintf(stderr, "Could not read FAT!\n");
+		free(g_Fat);
+		free(g_RootDirectory);
+		return -4;
+	}
+
+	free(g_Fat);
+	free(g_RootDirectory);
 	return 0;
 }
