@@ -1,3 +1,3 @@
 # HectOS
 
-The OS from Hecto
+Just a simple operating system
