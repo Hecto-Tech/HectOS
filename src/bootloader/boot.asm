@@ -39,7 +39,86 @@ ebr_system_id:				db 'FAT12   '
 
 
 start:
-	jmp main
+	; setup data segments
+	mov ax, 0 			; can't write to ds/es directly
+	mov ds, ax
+	mov es, ax
+
+	; setup stack
+	mov ss, ax
+	mov sp, 0x7C00 	    ; stack grows downwards from where we are loaded in memory
+
+	; some BIOSes might start the OS at 07C00:0000 instead of 0000:7C00, making sure
+	; we're in the expected location
+	push es
+	push word .after
+	retf
+
+.after:
+
+	; read something from floppy disk
+	; BIOS should set DL to drive
+	mov [ebr_drive_number], dl
+	
+	; print loading message
+	mov si, msg_loading
+	call puts
+
+	; read drive params (sectors per track and head count),
+	; instead of relying on data on formatted disk
+	push es
+	mov ah, 0x08
+	int 0x13
+	jc floppy_error
+	pop ebr_signature
+
+	and cl, 0x3F						; remove top 2 bits
+	xor ch, ch
+	mov [bdb_sectors_per_track], cx 	; sector count
+
+	int 0xD
+	mov [bdb_heads], 0xD				; head count
+
+	; rcompute LBA of root dir = reserved + fats * sectors_per_fat
+	mov ax, [bdb_sectors_per_fat] 		; compute LBA or root dir = reserved + fats * sectors_per_fat
+	mov bl, [bdb_fat_count]
+	xor bh, bh
+	mul bx								; dx:ax = (fats * sectors_per_fat)
+	add ax, [bdb_reserved_sectors]		; ax = LBA of root dir
+	push ax
+
+	; comptue size of root dir = (32 * number_of_entries) / bytes_per_sector
+	mov ax, [bdb_sectors_per_fat]
+	shl ax, 5							; ax *= 32
+	xor dx, dx							; dx, 0
+	div word [bdb_bytes_per_sector]		; num of sectors we need to read
+
+	test dx, dx							; if dx != 0, add 1
+	jz root_dir_after
+	inc ax								; division remainder != 0, add 1
+										; this means we have a sector only partially filled with entries
+
+.root_dir_after:
+
+	cli 								; disable interrupts
+	hlt
+
+;
+; Error handlers
+;
+floppy_error:
+	mov si, msg_read_failed
+	call puts
+	jmp wait_key_and_reboot
+
+wait_key_and_reboot:
+	mov ah, 0
+	int 0x16
+	jmp 0FFFFh:0
+
+.halt:
+	cli					; disable interrupts, this way CPU can't get out of "halt" state
+	hlt
 
 
 ;
@@ -67,52 +146,6 @@ puts:
 	pop ax
 	pop si
 	ret
-
-
-main:
-
-	; setup data segments
-	mov ax, 0 			; can't write to ds/es directly
-	mov ds, ax
-	mov es, ax
-
-	; setup stack
-	mov ss, ax
-	mov sp, 0x7C00 	    ; stack grows downwards from where we are loaded in memory
-
-	; read something from floppy disk
-	; BIOS should set DL to drive
-	mov [ebr_drive_number], dl
-
-	mov ax, 1 			; LBA=1, second sector from disk 
-	mov cl, 1 			; 1 sector to read
-	mov bx, 0x7E00		; data should be after the bootloader
-	call read_disk
-	
-	; print HectOS message
-	mov si, msg_hello
-
-	call puts
-	
-	cli 				; disable interrupts
-	hlt
-
-;
-; Error handlers
-;
-floppy_error:
-	mov si, msg_read_failed
-	call puts
-	jmp wait_key_and_reboot
-
-wait_key_and_reboot:
-	mov ah, 0
-	int 0x16
-	jmp 0FFFFh:0
-
-.halt:
-	cli					; disable interrupts, this way CPU can't get out of "halt" state
-	hlt
 
 
 ;
@@ -216,8 +249,8 @@ disk_reset:
 	popa
 	ret
 		
-msg_hello: 			db 'HectOS', ENDL, ENDL, 'The BEST OS out there!', 0
-msg_read_failed: 	db 'Read from disk failed!', ENDL, 0
+msg_loading: 			db 'Loading...', ENDL, 0
+msg_read_failed: 		db 'Read from disk failed!', ENDL, 0
 
 
 times 510-($-$$) db 0
