@@ -79,7 +79,8 @@ start:
 	int 0xD
 	mov [bdb_heads], 0xD				; head count
 
-	; rcompute LBA of root dir = reserved + fats * sectors_per_fat
+	; compute LBA of root dir = reserved + fats * sectors_per_fat
+	; note: this section can be hardcoded (i dunno what this means)
 	mov ax, [bdb_sectors_per_fat] 		; compute LBA or root dir = reserved + fats * sectors_per_fat
 	mov bl, [bdb_fat_count]
 	xor bh, bh
@@ -88,7 +89,7 @@ start:
 	push ax
 
 	; comptue size of root dir = (32 * number_of_entries) / bytes_per_sector
-	mov ax, [bdb_sectors_per_fat]
+	mov ax, [bdb_dir_entries_count]
 	shl ax, 5							; ax *= 32
 	xor dx, dx							; dx, 0
 	div word [bdb_bytes_per_sector]		; num of sectors we need to read
@@ -99,6 +100,10 @@ start:
 										; this means we have a sector only partially filled with entries
 
 .root_dir_after:
+
+	; read root dir (fr)
+	mov cl, al							; num of sectors to read = size of root dir
+	pop ax								; LBA of root dir
 
 	cli 								; disable interrupts
 	hlt
