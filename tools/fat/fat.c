@@ -1,5 +1,4 @@
 // I don't know what this code does, but I know it's very important, so we gotta leave it there
-
 // Yes, this whole operating system is written in PascalCase and camelCase
 
 #include <stdio.h>
